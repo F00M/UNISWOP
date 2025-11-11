@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>Stable DEX v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+:root{--green:#22c55e;--green2:#16a34a;--bg:#f4fff6;--mut:#eaf7ee}
+*{box-sizing:border-box}
+body{font-family:Poppins,system-ui,Arial;background:var(--bg);min-height:100vh;margin:0;display:grid;place-items:center;color:#022}
+.card{width:min(460px,92vw);background:#fff;border-radius:18px;box-shadow:0 10px 28px rgba(0,0,0,.1);padding:24px}
+h1{margin:0 0 6px;color:var(--green);text-align:center}
+small{display:block;text-align:center;color:#456}
+label{font-size:12px;color:#355;display:block;margin:12px 0 6px}
+select,input,button{width:100%;padding:12px;border-radius:12px;font-size:14px}
+input,select{border:1px solid #cfe8d7;background:#f8fffb}
+button{border:0;background:linear-gradient(90deg,var(--green),var(--green2));color:#fff;font-weight:700;cursor:pointer;transition:.2s}
+button:disabled{opacity:.6;cursor:not-allowed}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+pre{background:var(--mut);border:1px solid #d8efdf;border-radius:12px;padding:12px;white-space:pre-wrap;font-size:12px;max-height:220px;overflow:auto;margin-top:12px}
+footer{text-align:center;margin-top:8px;color:#6a7; font-size:12px}
+.hr{height:1px;background:#e7f5ea;margin:14px 0}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Stable DEX</h1>
+  <small>Base: <b>gUSDT</b> ↔ Quote: <span id="qname">USDT0</span></small>
+
+  <div class="hr"></div>
+
+  <button id="connect">🔌 Connect Wallet</button>
+  <label>Network</label>
+  <div class="row">
+    <input id="rpc" placeholder="RPC (opsional, default wallet)" />
+    <input id="chain" placeholder="Chain ID (opsional, ex: 2201)" />
+  </div>
+
+  <label>AMM Address</label>
+  <input id="amm" placeholder="0x... (AMM kontrak)">
+
+  <label>Base (gUSDT) Address</label>
+  <input id="gusdt" placeholder="0x... gUSDT">
+
+  <label>Quote Token</label>
+  <select id="quote">
+    <option value="USDT0">USDT0</option>
+    <option value="USDC">USDC</option>
+    <option value="DAI">DAI</option>
+    <option value="WBTC">WBTC</option>
+    <option value="ETH">ETH (native)</option>
+  </select>
+
+  <label>Quote Address (jika bukan ETH)</label>
+  <input id="quoteAddr" placeholder="0x... (USDT0/USDC/DAI/WBTC)">
+
+  <div class="hr"></div>
+
+  <label>Jumlah (angka human)</label>
+  <input id="amt" type="number" placeholder="mis: 10">
+
+  <div class="row">
+    <button id="res">📊 Reserves</button>
+    <button id="lp"  >🧾 LP Balance</button>
+  </div>
+
+  <div class="row" style="margin-top:8px">
+    <button id="add">💧 Add Liquidity</button>
+    <button id="rem">🧹 Remove Liquidity</button>
+  </div>
+
+  <div class="row" style="margin-top:8px">
+    <button id="swapB2Q">🔄 Swap gUSDT → Quote</button>
+    <button id="swapQ2B">🔁 Swap Quote → gUSDT</button>
+  </div>
+
+  <pre id="log">log siap...</pre>
+  <footer>by thdx</footer>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const log = m => { const el=$("log"); el.textContent += (el.textContent?"\n":"") + m; el.scrollTop=el.scrollHeight; console.log(m); };
+const setQName = () => { $("qname").textContent = $("quote").value; };
+$("quote").onchange = setQName; setQName();
+
+// ===== ABIs =====
+// AMM Token-Token (base=gUSDT, quote=ERC20) — asumsi fungsinya:
+const TT_AMM_ABI = [
+  "function base() view returns (address)",        // gUSDT
+  "function quote() view returns (address)",       // ERC20 (USDT0/USDC/DAI/WBTC)
+  "function getReserves() view returns (uint256 baseRes, uint256 quoteRes)",
+  "function totalSupplyLP() view returns (uint256)",
+  "function balanceOfLP(address) view returns (uint256)",
+  "function addLiquidity(uint256 baseAmt, uint256 quoteAmt)",
+  "function removeLiquidity(uint256 lpAmt) returns (uint256 baseOut, uint256 quoteOut)",
+  "function swapExactBaseForQuote(uint256 baseIn, uint256 minQuoteOut)",
+  "function swapExactQuoteForBase(uint256 quoteIn, uint256 minBaseOut)"
+];
+
+// AMM ETH-Token (kalau Quote=ETH maka pakai ini)
+const ETH_AMM_ABI = [
+  "function getReserves() view returns (uint256 ethRes, uint256 tokenRes)",
+  "function totalSupplyLP() view returns (uint256)",
+  "function balanceOfLP(address) view returns (uint256)",
+  "function addLiquidity(uint256 tokenAmt) payable",
+  "function removeLiquidity(uint256 lpAmt) returns (uint256 ethOut, uint256 tokenOut)",
+  "function swapExactETHForTokens(uint256 minOut) payable",
+  "function swapExactTokensForETH(uint256 tokenIn, uint256 minOut)"
+];
+
+// ERC20 minimal
+const ERC20_ABI = [
+  "function decimals() view returns (uint8)",
+  "function balanceOf(address) view returns (uint256)",
+  "function approve(address,uint256) returns (bool)",
+  "function allowance(address,address) view returns (uint256)"
+];
+
+// ===== State =====
+let provider, signer, me;
+
+// ===== Helpers =====
+const parseU = (v, d=6) => ethers.utils.parseUnits(String(v||"0"), d);
+const fmtU   = (v, d=6) => ethers.utils.formatUnits(v, d);
+
+async function connect() {
+  try {
+    if (!window.ethereum) throw new Error("MetaMask/OKX/Trust belum aktif.");
+    // optional custom RPC
+    const rpc = $("rpc").value.trim();
+    provider = rpc ? new ethers.providers.JsonRpcProvider(rpc) : new ethers.providers.Web3Provider(window.ethereum,"any");
+    if (!rpc) await provider.send("eth_requestAccounts",[]);
+    signer = provider.getSigner();
+    me = await signer.getAddress().catch(()=>null);
+    const net = await provider.getNetwork();
+    log(`✅ Connected: ${me||'-'}\nChain: ${net.chainId}`);
+  } catch(e) { log("❌ Connect error: "+(e.message||e)); }
+}
+
+function getMode() {
+  // mode ETH jika quote=ETH, selain itu mode Token-Token
+  return ($("quote").value === "ETH") ? "ETH" : "TT";
+}
+
+async function ensureApprove(tokenAddr, spender, amount, dec=6) {
+  const t = new ethers.Contract(tokenAddr, ERC20_ABI, signer);
+  const allowance = await t.allowance(me, spender);
+  if (allowance.gte(amount)) return;
+  const tx = await t.approve(spender, amount);
+  log(`🧾 Approve ${tokenAddr} → ${spender} : ${tx.hash}`);
+  await tx.wait();
+  log(`✅ Approve done`);
+}
+
+async function getDecimals(tokenAddr, fallback=6){
+  try { const t = new ethers.Contract(tokenAddr, ERC20_ABI, provider); return await t.decimals(); }
+  catch { return fallback; }
+}
+
+// ===== Actions =====
+async function showReserves() {
+  try {
+    const amm = $("amm").value.trim();
+    const mode = getMode();
+    if (mode==="ETH") {
+      const c = new ethers.Contract(amm, ETH_AMM_ABI, provider);
+      const [ethRes, tokRes] = await c.getReserves();
+      const qDec = await getDecimals($("quoteAddr").value.trim(), 6);
+      log(`📊 Reserves (ETH-mode)\n  ETH : ${ethers.utils.formatEther(ethRes)}\n  TOK : ${fmtU(tokRes, qDec)}`);
+    } else {
+      const c = new ethers.Contract(amm, TT_AMM_ABI, provider);
+      const [bRes, qRes] = await c.getReserves();
+      const bDec = await getDecimals($("gusdt").value.trim(), 6);
+      const qDec = await getDecimals($("quoteAddr").value.trim(), 6);
+      log(`📊 Reserves (TT-mode)\n  gUSDT: ${fmtU(bRes, bDec)}\n  ${$("quote").value}: ${fmtU(qRes, qDec)}`);
+    }
+  } catch(e) { log("❌ Reserves error: "+(e.reason||e.message||e)); }
+}
+
+async function lpBalance() {
+  try{
+    const amm = $("amm").value.trim();
+    const c = new ethers.Contract(amm, (getMode()==="ETH"?ETH_AMM_ABI:TT_AMM_ABI), provider);
+    const bal = await c.balanceOfLP(me);
+    log(`🧾 LP balance: ${fmtU(bal, 18)} LP`);
+  }catch(e){ log("❌ LP error: "+(e.reason||e.message||e)); }
+}
+
+async function addLiquidity() {
+  try{
+    const amm = $("amm").value.trim();
+    const mode = getMode();
+    const amount = $("amt").value.trim();
+    if(!amount) return alert("Isi amount dulu.");
+
+    if (mode==="ETH") {
+      // ETH ↔ Token
+      const qAddr = $("quoteAddr").value.trim();
+      const c = new ethers.Contract(amm, ETH_AMM_ABI, signer);
+      const qDec = await getDecimals(qAddr, 6);
+      const tokenAmt = parseU(amount, qDec);
+      const ethVal   = ethers.utils.parseEther("0.001"); // contoh
+      await ensureApprove(qAddr, amm, tokenAmt, qDec);
+      log("💧 Add (ETH-mode)...");
+      const tx = await c.addLiquidity(tokenAmt, { value: ethVal });
+      log("⏳ TX: "+tx.hash); await tx.wait();
+      log("✅ Add liquidity done");
+    } else {
+      // Token↔Token (gUSDT base)
+      const base = $("gusdt").value.trim();
+      const quote= $("quoteAddr").value.trim();
+      const c = new ethers.Contract(amm, TT_AMM_ABI, signer);
+      const bDec = await getDecimals(base, 6);
+      const qDec = await getDecimals(quote,6);
+
+      const baseAmt  = parseU(amount, bDec);     // contoh: sama nominal untuk base
+      const quoteAmt = parseU(amount, qDec);     // dan quote (bisa beda sesuai UI desain)
+      await ensureApprove(base,  amm, baseAmt,  bDec);
+      await ensureApprove(quote, amm, quoteAmt, qDec);
+
+      log("💧 Add (TT-mode)...");
+      const tx = await c.addLiquidity(baseAmt, quoteAmt);
+      log("⏳ TX: "+tx.hash); await tx.wait();
+      log("✅ Add liquidity done");
+    }
+  } catch(e){ log("❌ Add error: "+(e.reason||e.message||e)); }
+}
+
+async function removeLiquidity() {
+  try{
+    const amm = $("amm").value.trim();
+    const c = new ethers.Contract(amm, (getMode()==="ETH"?ETH_AMM_ABI:TT_AMM_ABI), signer);
+    const amt = $("amt").value.trim();
+    if(!amt) return alert("Isi amount (LP) dulu.");
+    const lpAmt = ethers.utils.parseUnits(String(amt),18);
+    log("🧹 Remove liquidity...");
+    const tx = await c.removeLiquidity(lpAmt);
+    log("⏳ TX: "+tx.hash); await tx.wait();
+    log("✅ Remove liquidity done");
+  }catch(e){ log("❌ Remove error: "+(e.reason||e.message||e)); }
+}
+
+async function swapB2Q(){ // gUSDT → Quote
+  try{
+    const amm = $("amm").value.trim();
+    const mode= getMode();
+    const amt = $("amt").value.trim();
+    if(!amt) return alert("Isi amount dulu.");
+
+    if (mode==="ETH") {
+      // gUSDT → ETH tidak disediakan di ETH-mode AMM (itu Token→ETH). Pakai swapExactTokensForETH.
+      const qAddr = $("quoteAddr").value.trim();
+      const c = new ethers.Contract(amm, ETH_AMM_ABI, signer);
+      // base=gUSDT, quote=ETH → ini tidak cocok dgn ETH-mode (ETH-mode tokennya adalah quote ERC20).
+      // Di ETH-mode, fungsi tersedia: token → ETH
+      const gusdt = $("gusdt").value.trim();
+      const dec = await getDecimals(gusdt,6);
+      const tokenIn = parseU(amt, dec);
+      await ensureApprove(gusdt, amm, tokenIn, dec);
+      const minOut = ethers.BigNumber.from(0); // demo
+      log("🔄 Swap gUSDT → ETH (ETH-mode via token->ETH)...");
+      const tx = await c.swapExactTokensForETH(tokenIn, minOut);
+      log("⏳ TX: "+tx.hash); await tx.wait();
+      log("✅ Swap done");
+    } else {
+      // TT-mode: swapExactBaseForQuote(baseIn, minQuoteOut)
+      const c = new ethers.Contract(amm, TT_AMM_ABI, signer);
+      const base = $("gusdt").value.trim();
+      const bDec = await getDecimals(base,6);
+      const baseIn = parseU(amt, bDec);
+      await ensureApprove(base, amm, baseIn, bDec);
+      const minOut = ethers.BigNumber.from(0);
+      log("🔄 Swap gUSDT → Quote...");
+      const tx = await c.swapExactBaseForQuote(baseIn, minOut);
+      log("⏳ TX: "+tx.hash); await tx.wait();
+      log("✅ Swap done");
+    }
+  }catch(e){ log("❌ Swap error: "+(e.reason||e.message||e)); }
+}
+
+async function swapQ2B(){ // Quote → gUSDT
+  try{
+    const amm = $("amm").value.trim();
+    const mode= getMode();
+    const amt = $("amt").value.trim();
+    if(!amt) return alert("Isi amount dulu.");
+
+    if (mode==="ETH") {
+      // Quote=ETH → ETH → Token (bukan ke gUSDT). Untuk Q->B butuh TT-mode.
+      // Tapi kalau user pilih ETH, kita arahkan ETH → Token pakai swapExactETHForTokens
+      const c = new ethers.Contract(amm, ETH_AMM_ABI, signer);
+      const ethIn = ethers.utils.parseEther(amt);
+      const minOut = ethers.BigNumber.from(0);
+      log("🔁 Swap ETH → Token...");
+      const tx = await c.swapExactETHForTokens(minOut, { value: ethIn });
+      log("⏳ TX: "+tx.hash); await tx.wait();
+      log("✅ Swap done");
+    } else {
+      // TT-mode: swapExactQuoteForBase(quoteIn, minBaseOut)
+      const c = new ethers.Contract(amm, TT_AMM_ABI, signer);
+      const quote = $("quoteAddr").value.trim();
+      const qDec = await getDecimals(quote,6);
+      const qIn = parseU(amt, qDec);
+      await ensureApprove(quote, amm, qIn, qDec);
+      const minOut = ethers.BigNumber.from(0);
+      log("🔁 Swap Quote → gUSDT...");
+      const tx = await c.swapExactQuoteForBase(qIn, minOut);
+      log("⏳ TX: "+tx.hash); await tx.wait();
+      log("✅ Swap done");
+    }
+  }catch(e){ log("❌ Swap error: "+(e.reason||e.message||e)); }
+}
+
+// bindings
+$("connect").onclick = connect;
+$("res").onclick     = showReserves;
+$("lp").onclick      = lpBalance;
+$("add").onclick     = addLiquidity;
+$("rem").onclick     = removeLiquidity;
+$("swapB2Q").onclick = swapB2Q;
+$("swapQ2B").onclick = swapQ2B;
+</script>
+</body>
+</html>
