@@ -1,10 +1,10 @@
 // =============================
-//  KONFIG KONTRAK (STABLE)
+//  KONTRAK DI STABLE TESTNET
 // =============================
-const WGUSDT_ADDRESS = "0xfDb4190419F2b0453Dad7567dEF44E6AB07096c6"; // wGUSDT wrapper
-const OOPS_ADDRESS   = "0xB0CBCcEe94c957Fa21A97551C825C4e71ADfF93D"; // OOPS token
-const ROUTER_ADDRESS = "0xe1aEe57F48830876B37A1a7d04d73eF9F1d069f2"; // UniswopV2Router
-const PAIR_ADDRESS   = "0xc5D2b0D1b6BAe03571dF97D6f389AB47Af7a0d30"; // wGUSDT-OOPS pair
+const WGUSDT_ADDRESS = "0xfDb4190419F2b0453Dad7567dEF44E6AB07096c6"; // wrapper (wGUSDT)
+const OOPS_ADDRESS   = "0xB0CBCcEe94c957Fa21A97551C825C4e71ADfF93D";
+const ROUTER_ADDRESS = "0xe1aEe57F48830876B37A1a7d04d73eF9F1d069f2";
+const PAIR_ADDRESS   = "0xc5D2b0D1b6BAe03571dF97D6f389AB47Af7a0d30";
 
 const DECIMALS = 18;
 
@@ -44,18 +44,23 @@ const toBtn      = document.getElementById("toToken");
 const inputEl    = document.getElementById("swapInput");
 const outputEl   = document.getElementById("swapOutput");
 const statusEl   = document.getElementById("status");
+const balFromEl  = document.getElementById("balFrom");
 
 // =============================
 //  STATE
 // =============================
-
 let provider, signer, userAddress;
 let wgusdt, oops, router, pair;
 
-// token internal: "GUSDT" (native), "WGUSDT", "OOPS"
+// internal token id: "GUSDT" (native), "WGUSDT", "OOPS"
 let fromToken = "WGUSDT";
 let toToken   = "OOPS";
 
+const TOKEN_ORDER = ["GUSDT", "WGUSDT", "OOPS"];
+
+// =============================
+//  HELPERS
+// =============================
 function setStatus(msg) {
   statusEl.textContent = msg || "";
 }
@@ -64,65 +69,49 @@ function short(addr) {
   return addr.slice(0, 6) + "..." + addr.slice(-4);
 }
 
-// =============================
-//  UPDATE UI SESUAI STATE
-// =============================
-function updateTokenButtons() {
-  fromBtn.textContent = (fromToken === "GUSDT" ? "gUSDT" :
-                         fromToken === "WGUSDT" ? "wGUSDT" : "OOPS") + " ▾";
+function tokenLabel(id) {
+  if (id === "GUSDT") return "gUSDT";
+  if (id === "WGUSDT") return "wGUSDT";
+  return "OOPS";
+}
 
-  toBtn.textContent   = (toToken === "GUSDT" ? "gUSDT" :
-                         toToken === "WGUSDT" ? "wGUSDT" : "OOPS") + " ▾";
+function getActionType() {
+  if (fromToken === "GUSDT" && toToken === "WGUSDT") return "WRAP";
+  if (fromToken === "WGUSDT" && toToken === "GUSDT") return "UNWRAP";
+  if (fromToken === "GUSDT" || toToken === "GUSDT") return "INVALID";
+  return "SWAP"; // WGUSDT <-> OOPS
+}
+
+function updateTokenButtons() {
+  fromBtn.textContent = tokenLabel(fromToken) + " ▾";
+  toBtn.textContent   = tokenLabel(toToken)   + " ▾";
 
   const action = getActionType();
   if (action === "WRAP") {
     swapBtn.textContent = "Wrap gUSDT → wGUSDT";
-    swapBtn.disabled = !signer;
   } else if (action === "UNWRAP") {
     swapBtn.textContent = "Unwrap wGUSDT → gUSDT";
-    swapBtn.disabled = !signer;
   } else if (action === "SWAP") {
-    swapBtn.textContent = `Swap ${fromToken} → ${toToken}`;
-    swapBtn.disabled = !signer;
+    swapBtn.textContent = `Swap ${tokenLabel(fromToken)} → ${tokenLabel(toToken)}`;
   } else {
-    swapBtn.textContent = "Tidak bisa";
-    swapBtn.disabled = true;
+    swapBtn.textContent = "Tidak didukung";
   }
-}
 
-// jenis aksi berdasarkan kombinasi token
-function getActionType() {
-  if (fromToken === "GUSDT" && toToken === "WGUSDT") return "WRAP";
-  if (fromToken === "WGUSDT" && toToken === "GUSDT") return "UNWRAP";
-
-  // larang kombinasi yg melibatkan native selain dgn wrapper
-  if (fromToken === "GUSDT" || toToken === "GUSDT") return "INVALID";
-
-  // sisanya swap token biasa (WGUSDT <-> OOPS)
-  return "SWAP";
+  swapBtn.disabled = !signer || action === "INVALID";
 }
 
 // =============================
-//  TOKEN SWITCH (SIMPLE CYCLE)
+//  TOKEN SWITCH (CYCLE + FLIP)
 // =============================
-
-const TOKEN_ORDER = ["GUSDT", "WGUSDT", "OOPS"];
-
 fromBtn.onclick = () => {
-  // cycle dari list
   let idx = TOKEN_ORDER.indexOf(fromToken);
   fromToken = TOKEN_ORDER[(idx + 1) % TOKEN_ORDER.length];
 
-  // hindari from == to
   if (fromToken === toToken) {
     let id2 = TOKEN_ORDER.indexOf(toToken);
     toToken = TOKEN_ORDER[(id2 + 1) % TOKEN_ORDER.length];
   }
-
-  // jaga rule: GUSDT hanya boleh berpasangan dengan WGUSDT
-  if (fromToken === "GUSDT" && toToken !== "WGUSDT") {
-    toToken = "WGUSDT";
-  }
+  if (fromToken === "GUSDT" && toToken !== "WGUSDT") toToken = "WGUSDT";
 
   updateTokenButtons();
   updateQuote();
@@ -136,10 +125,7 @@ toBtn.onclick = () => {
     let id2 = TOKEN_ORDER.indexOf(fromToken);
     fromToken = TOKEN_ORDER[(id2 + 1) % TOKEN_ORDER.length];
   }
-
-  if (toToken === "GUSDT" && fromToken !== "WGUSDT") {
-    fromToken = "WGUSDT";
-  }
+  if (toToken === "GUSDT" && fromToken !== "WGUSDT") fromToken = "WGUSDT";
 
   updateTokenButtons();
   updateQuote();
@@ -150,13 +136,8 @@ flipBtn.onclick = () => {
   fromToken = toToken;
   toToken   = tmp;
 
-  // kalau kombinasi illegal (GUSDT lawan selain WG), benerin
-  if (fromToken === "GUSDT" && toToken !== "WGUSDT") {
-    toToken = "WGUSDT";
-  }
-  if (toToken === "GUSDT" && fromToken !== "WGUSDT") {
-    fromToken = "WGUSDT";
-  }
+  if (fromToken === "GUSDT" && toToken !== "WGUSDT") toToken = "WGUSDT";
+  if (toToken === "GUSDT" && fromToken !== "WGUSDT") fromToken = "WGUSDT";
 
   updateTokenButtons();
   updateQuote();
@@ -173,7 +154,6 @@ connectBtn.onclick = async () => {
     }
 
     await window.ethereum.request({ method: "eth_requestAccounts" });
-
     provider = new ethers.providers.Web3Provider(window.ethereum);
     signer   = provider.getSigner();
     userAddress = await signer.getAddress();
@@ -185,6 +165,7 @@ connectBtn.onclick = async () => {
 
     connectBtn.textContent = short(userAddress);
     setStatus("✅ Wallet connected.");
+    await refreshBalances();
     updateTokenButtons();
   } catch (e) {
     console.error(e);
@@ -192,10 +173,19 @@ connectBtn.onclick = async () => {
   }
 };
 
-// =============================
-//  QUOTE / ESTIMASI OUTPUT
-// =============================
+async function refreshBalances() {
+  if (!wgusdt || !userAddress) return;
+  try {
+    const bal = await wgusdt.balanceOf(userAddress);
+    balFromEl.textContent = ethers.utils.formatUnits(bal, DECIMALS);
+  } catch (e) {
+    console.error(e);
+  }
+}
 
+// =============================
+//  QUOTE / ESTIMASI
+// =============================
 async function updateQuote() {
   const val = inputEl.value.trim();
   outputEl.value = "";
@@ -203,7 +193,7 @@ async function updateQuote() {
 
   const action = getActionType();
   if (action === "INVALID") {
-    setStatus("Kombinasi token ini tidak didukung.");
+    setStatus("Kombinasi token tidak didukung.");
     return;
   }
 
@@ -211,19 +201,16 @@ async function updateQuote() {
     const amountIn = ethers.utils.parseUnits(val, DECIMALS);
 
     if (action === "WRAP" || action === "UNWRAP") {
-      // 1:1
       outputEl.value = val;
       setStatus("");
       return;
     }
 
-    // SWAP: hanya wGUSDT <-> OOPS
+    // SWAP WGUSDT <-> OOPS
     if (!pair) return;
     const [r0, r1] = await pair.getReserves();
     const token0   = await pair.token0();
-    const token1   = await pair.token1();
 
-    // mapping alamat in/out
     const addrIn  = fromToken === "WGUSDT" ? WGUSDT_ADDRESS : OOPS_ADDRESS;
     const addrOut = toToken   === "WGUSDT" ? WGUSDT_ADDRESS : OOPS_ADDRESS;
 
@@ -254,7 +241,7 @@ inputEl.oninput = () => {
 };
 
 // =============================
-//  MAIN ACTION: WRAP / UNWRAP / SWAP
+//  MAIN ACTION
 // =============================
 swapBtn.onclick = async () => {
   const raw = inputEl.value.trim();
@@ -272,40 +259,37 @@ swapBtn.onclick = async () => {
     const amountWei = ethers.utils.parseUnits(raw, DECIMALS);
 
     if (action === "WRAP") {
-      // gUSDT (native) -> wGUSDT
       setStatus("⏳ Wrapping gUSDT → wGUSDT...");
       const tx = await wgusdt.deposit({ value: amountWei });
       setStatus("Tx: " + tx.hash);
       await tx.wait();
       setStatus("✅ Wrap selesai.");
+      await refreshBalances();
       return;
     }
 
     if (action === "UNWRAP") {
-      // wGUSDT -> gUSDT (native)
       setStatus("⏳ Unwrapping wGUSDT → gUSDT...");
       const tx = await wgusdt.withdraw(amountWei);
       setStatus("Tx: " + tx.hash);
       await tx.wait();
       setStatus("✅ Unwrap selesai.");
+      await refreshBalances();
       return;
     }
 
     if (action === "SWAP") {
-      // SWAP antar ERC20 (wGUSDT <-> OOPS)
       const tokenInAddr  = fromToken === "WGUSDT" ? WGUSDT_ADDRESS : OOPS_ADDRESS;
       const tokenOutAddr = toToken   === "WGUSDT" ? WGUSDT_ADDRESS : OOPS_ADDRESS;
 
-      const tokenIn = fromToken === "WGUSDT"
-        ? wgusdt
-        : oops;
+      const tokenIn = fromToken === "WGUSDT" ? wgusdt : oops;
 
-      setStatus("⏳ Approve router dulu...");
+      setStatus("⏳ Approve router...");
       const txApprove = await tokenIn.approve(ROUTER_ADDRESS, amountWei);
       setStatus("Approve tx: " + txApprove.hash);
       await txApprove.wait();
 
-      setStatus("⏳ Swap jalan...");
+      setStatus("⏳ Swap berjalan...");
       const txSwap = await router.swapExactTokensForTokens(
         amountWei,
         0,
@@ -316,6 +300,7 @@ swapBtn.onclick = async () => {
       setStatus("Swap tx: " + txSwap.hash);
       await txSwap.wait();
       setStatus("🎉 Swap sukses.");
+      await refreshBalances();
       return;
     }
 
@@ -326,6 +311,6 @@ swapBtn.onclick = async () => {
   }
 };
 
-// init ui awal
+// init
 updateTokenButtons();
 setStatus("");
