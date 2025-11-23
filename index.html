@@ -2,78 +2,68 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>UNISWOP</title>
+  <title>StableSwap</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 </head>
 <body>
-  <div class="app-root">
-    <header class="app-header">
-      <div class="app-logo">UNISWOP</div>
-      <div class="header-right">
-        <span class="network-pill">Stable Testnet</span>
-        <button id="connectBtn" class="btn btn-primary">Connect Wallet</button>
+
+  <header class="nav">
+    <div class="brand">StableSwap</div>
+    <button id="connectBtn" class="btn-connect">Connect</button>
+  </header>
+
+  <main class="container">
+
+    <section class="swap-box">
+
+      <div class="tabs">
+        <button id="tabSwap" class="tab active">Swap</button>
+        <button id="tabWrap" class="tab">Wrap</button>
       </div>
-    </header>
 
-    <main class="app-main">
-      <section class="swap-card">
-        <div class="card-header">
-          <div class="card-title">Swap & Wrap</div>
-          <div class="wallet-display" id="walletDisplay">Not connected</div>
-        </div>
+      <div id="panelSwap">
 
-        <div class="balances">
-          <div> wGUSDT: <span id="balWg">-</span> </div>
-          <div> OOPS: <span id="balOops">-</span> </div>
-        </div>
-
-        <div class="tabs">
-          <button id="tabWrap" class="tab active">Wrap / Unwrap</button>
-          <button id="tabSwap" class="tab">Swap</button>
-        </div>
-
-        <!-- WRAP / UNWRAP PANEL -->
-        <div id="panelWrap">
-          <label class="field-label">Amount</label>
-          <div class="amount-box">
-            <input id="wrapInput" type="text" placeholder="0.0" />
-            <div class="token-chip">gUSDT ⇄ wGUSDT</div>
+        <div class="input-card">
+          <label>From</label>
+          <div class="input-row">
+            <input id="swapInput" placeholder="0.0" />
+            <div class="token-pill">wGUSDT</div>
           </div>
-
-          <button id="wrapBtn" class="btn btn-primary btn-full" disabled>
-            Wrap gUSDT → wGUSDT
-          </button>
-          <button id="unwrapBtn" class="btn btn-secondary btn-full" disabled>
-            Unwrap wGUSDT → gUSDT
-          </button>
         </div>
 
-        <!-- SWAP PANEL -->
-        <div id="panelSwap" style="display:none;">
-          <label class="field-label">From (wGUSDT)</label>
-          <div class="amount-box">
-            <input id="swapInput" type="text" placeholder="0.0" />
-            <div class="token-chip">wGUSDT</div>
-          </div>
+        <div class="arrow">↓</div>
 
-          <label class="field-label" style="margin-top:10px;">To (OOPS)</label>
-          <div class="amount-box disabled">
-            <input type="text" placeholder="estimated" id="swapOutput" disabled />
-            <div class="token-chip">OOPS</div>
+        <div class="input-card">
+          <label>To</label>
+          <div class="input-row disabled">
+            <input id="swapOutput" placeholder="0.0" disabled />
+            <div class="token-pill">OOPS</div>
           </div>
-
-          <button id="swapBtn" class="btn btn-primary btn-full" disabled>
-            Swap wGUSDT → OOPS
-          </button>
         </div>
 
-        <div id="status" class="status-box"></div>
-      </section>
-    </main>
-  </div>
+        <button id="swapBtn" class="btn-primary" disabled>Swap</button>
+      </div>
+
+      <div id="panelWrap" style="display:none;">
+
+        <div class="input-card">
+          <label>Amount</label>
+          <div class="input-row">
+            <input id="wrapInput" placeholder="0.0" />
+            <div class="token-pill">gUSDT / wGUSDT</div>
+          </div>
+        </div>
+
+        <button id="wrapBtn" class="btn-primary" disabled>Wrap</button>
+        <button id="unwrapBtn" class="btn-secondary" disabled>Unwrap</button>
+      </div>
+
+      <div id="status" class="status"></div>
+    </section>
+  </main>
 
   <script src="app.js"></script>
 </body>
