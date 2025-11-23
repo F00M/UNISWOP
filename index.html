@@ -1,417 +1,72 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Stable DEX</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-<!-- WalletConnect v2 (UMD) -->
-<script src="https://unpkg.com/@walletconnect/ethereum-provider/dist/umd/index.min.js"></script>
-<style>
-:root{
-  --bg1:#ecfdf5; --bg2:#d1fae5; --card:#ffffff; --mut:#e9f7ef;
-  --text:#052e2b; --sub:#335f58; --g1:#22c55e; --g2:#16a34a; --line:#dff3e7;
-}
-*{box-sizing:border-box} html,body{height:100%}
-body{margin:0; font-family:Poppins,system-ui,Arial; background:linear-gradient(180deg,var(--bg1),var(--bg2)); color:var(--text)}
-.header{max-width:1000px; margin:0 auto; padding:16px 18px; display:flex; align-items:center; justify-content:space-between}
-.brand{display:flex; gap:10px; align-items:center; font-weight:700}
-.brand svg{width:28px; height:28px} .brand span{font-size:18px}
-.connect{border:0; padding:10px 14px; border-radius:12px; color:#fff; font-weight:700; background:linear-gradient(90deg,var(--g1),var(--g2)); cursor:pointer}
-.wrap{max-width:1000px; margin:24px auto; padding:0 18px; display:grid; place-items:center}
-.card{width:min(520px,96vw); background:var(--card); border-radius:20px; box-shadow:0 14px 40px rgba(16,185,129,.18); border:1px solid var(--line); padding:18px}
-.tabs{display:flex; gap:6px; background:var(--mut); padding:6px; border-radius:12px; margin-bottom:12px}
-.tab{flex:1; text-align:center; padding:10px 0; border-radius:10px; cursor:pointer; user-select:none; font-weight:700; color:var(--sub)}
-.tab.active{background:#fff; color:var(--text); border:1px solid var(--line)}
-.panel{display:none} .panel.active{display:block}
-.row{background:#f6fdf9; border:1px solid var(--line); border-radius:14px; padding:12px}
-.row-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px}
-.token{display:flex; gap:8px; align-items:center; background:#fff; border:1px solid var(--line); padding:8px 10px; border-radius:12px; min-width:160px}
-.token select{border:0; outline:0; background:transparent; font-weight:700}
-.amt input{width:100%; border:0; outline:0; background:transparent; font-size:20px; font-weight:700; text-align:right}
-.cta{width:100%; border:0; padding:14px; color:#fff; font-weight:800; border-radius:14px; background:linear-gradient(90deg,var(--g1),var(--g2)); cursor:pointer; margin-top:8px}
-.two{display:grid; grid-template-columns:1fr 1fr; gap:10px}
-.input{width:100%; border:1px solid var(--line); border-radius:12px; padding:10px; background:#f6fdf9}
-.kv{display:flex; justify-content:space-between; font-size:12px; color:var(--sub); margin-top:6px}
-.mini{font-size:12px; color:var(--sub); margin-top:6px} .divider{height:1px; background:var(--line); margin:10px 0}
-pre{background:#f1fbf5; border:1px solid var(--line); color:#0b3b35; padding:12px; border-radius:12px; white-space:pre-wrap; font-size:12px; margin-top:12px; max-height:240px; overflow:auto}
-footer{max-width:1000px; margin:12px auto 24px; text-align:center; color:#588b83; font-size:12px}
+  <meta charset="UTF-8" />
+  <title>UNISWOP</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-/* Wallet modal */
-.modal{position:fixed; inset:0; display:none; place-items:center; background:rgba(0,0,0,.4); z-index:50}
-.modal.show{display:grid}
-.modal-card{width:min(360px,92vw); background:#fff; border-radius:16px; padding:16px; border:1px solid var(--line)}
-.modal-title{font-weight:700; margin-bottom:10px}
-.wbtn{width:100%; margin-top:8px; padding:12px; border-radius:12px; border:1px solid var(--line); background:#f6fdf9; cursor:pointer; font-weight:700}
-.wbtn:hover{background:#eefaf3}
-.close{margin-top:8px; width:100%; padding:10px; border:0; border-radius:12px; background:#edf2f7; cursor:pointer}
-.addr{font-size:12px; color:#5b8f86; margin-left:10px}
-</style>
+  <!-- CSS -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Ethers -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 </head>
+
 <body>
-  <header class="header">
-    <div class="brand">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
-        <circle cx="32" cy="32" r="30" fill="#10b981"/>
-        <path fill="#fff" d="M20 32a12 12 0 0 1 24 0a12 12 0 0 1-24 0zm12-20a20 20 0 1 0 0 40a20 20 0 1 0 0-40z"/>
-      </svg>
-      <span>Stable DEX</span>
-      <span id="shortAddr" class="addr"></span>
+  <div class="container">
+
+    <div class="brand">UNISWOP</div>
+    <div class="sub">Wallet Actions</div>
+
+    <button id="connectBtn" class="btn-primary" style="margin-bottom:14px;">
+      Connect Wallet
+    </button>
+
+    <div class="tabs">
+      <div id="tabWrap" class="tab active">Wrap / Unwrap</div>
+      <div id="tabSwap" class="tab">Swap</div>
     </div>
-    <button id="btnConnect" class="connect">Connect Wallet</button>
-  </header>
 
-  <main class="wrap">
-    <section class="card">
-      <div class="tabs">
-        <div id="tabSwap" class="tab active">Swap</div>
-        <div id="tabLiq" class="tab">Liquidity</div>
+    <!-- WRAP PANEL -->
+    <div id="panelWrap" class="card">
+      <div class="label">Amount</div>
+      <div class="input-box">
+        <input type="text" placeholder="0.0" id="wrapInput" />
+        <div class="token-tag">gUSDT / wGUSDT</div>
       </div>
 
-      <!-- SWAP -->
-      <div id="panelSwap" class="panel active">
-        <div class="row">
-          <div class="row-top">
-            <div class="token"><select id="fromToken"></select></div>
-            <div class="amt"><input id="fromAmount" type="number" placeholder="0.0" /></div>
-          </div>
-          <div class="kv"><span>Balance:</span><span id="balFrom">-</span></div>
-        </div>
-        <div class="row" style="margin-top:8px">
-          <div class="row-top">
-            <div class="token"><select id="toToken"></select></div>
-            <div class="amt"><input id="toAmount" type="number" placeholder="0.0" /></div>
-          </div>
-          <div class="kv"><span>Balance:</span><span id="balTo">-</span></div>
-        </div>
-        <button id="btnSwap" class="cta">Swap</button>
-        <div class="mini" id="priceBox">Price: -</div>
-      </div>
+      <button class="btn-primary" style="margin-top:12px;" id="wrapBtn" disabled>
+        Wrap
+      </button>
 
-      <!-- LIQUIDITY -->
-      <div id="panelLiq" class="panel">
-        <div class="two">
-          <div class="token"><select id="liqTokenA"></select></div>
-          <div class="token"><select id="liqTokenB"></select></div>
-        </div>
-        <div class="two" style="margin-top:8px">
-          <input id="liqAmtA" class="input" type="number" placeholder="Amount A (0.0)" />
-          <input id="liqAmtB" class="input" type="number" placeholder="Amount B (0.0)" />
-        </div>
-        <div class="two" style="margin-top:8px">
-          <button id="btnAdd" class="cta">Add Liquidity</button>
-          <button id="btnRemove" class="cta">Remove Liquidity</button>
-        </div>
-        <div class="divider"></div>
-        <div class="kv"><span>Reserves</span><span id="reservesBox">-</span></div>
-        <div class="two" style="margin-top:8px">
-          <input id="lpAmt" class="input" type="number" placeholder="LP to remove (18d) ex: 0.1" />
-          <div class="input" style="display:flex;align-items:center;justify-content:space-between">
-            <span>LP Balance</span><span id="lpBox">-</span>
-          </div>
-        </div>
-      </div>
-
-      <pre id="log">log siap...</pre>
-    </section>
-  </main>
-
-  <footer>by thdx</footer>
-
-  <!-- Wallet modal -->
-  <div id="walletModal" class="modal">
-    <div class="modal-card">
-      <div class="modal-title">Choose your wallet</div>
-      <button class="wbtn" id="wMeta">🦊 MetaMask</button>
-      <button class="wbtn" id="wWC">🔗 WalletConnect (QR)</button>
-      <button class="wbtn" id="wTrust">🛡️ Trust Wallet (injected)</button>
-      <button class="wbtn" id="wOKX">🧩 OKX Wallet (injected)</button>
-      <button class="close" id="wClose">Close</button>
+      <button style="margin-top:8px;" id="unwrapBtn" disabled>
+        Unwrap
+      </button>
     </div>
+
+    <!-- SWAP PANEL -->
+    <div id="panelSwap" class="card" style="display:none;">
+      <div class="label">From</div>
+      <div class="input-box">
+        <input type="text" placeholder="0.0" id="swapInput" />
+        <div class="token-tag">wGUSDT</div>
+      </div>
+
+      <div class="label" style="margin-top:12px;">To</div>
+      <div class="input-box">
+        <input type="text" placeholder="0.0" disabled />
+        <div class="token-tag">OOPS</div>
+      </div>
+
+      <button class="btn-primary" style="margin-top:12px;" id="swapBtn" disabled>
+        Swap
+      </button>
+    </div>
+
+    <div id="status"></div>
   </div>
 
-<script>
-/* =========================
-   EDIT HERE — Addresses
-   ========================= */
-const STABLE = { id: 2201, hex: "0x899", rpc: "https://stable-jsonrpc.testnet.chain0.dev" };
-
-// Token hardcoded
-const TOKENS = {
-  gUSDT:  { symbol:"gUSDT", addr:"0x701f3927871EfcEa1235dB722f9E608aE120d243", decimals:6 },
-  USDT0:  { symbol:"USDT0", addr:"0x78cf24370174180738c5b8e352b6d14c83a6c9a9", decimals:6 },
-  USDC:   { symbol:"USDC",  addr:"0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238", decimals:6 },
-  DAI:    { symbol:"DAI",   addr:"0x0000000000000000000000000000000000000dAi", decimals:18 }, // mock
-  WBTC:   { symbol:"WBTC",  addr:"0x000000000000000000000000000000000000wBtC", decimals:8  }, // mock
-  MOCKETH:{ symbol:"ETH",   addr:"0x000000000000000000000000000000000000eTh", decimals:18 }  // mock ERC20
-};
-
-// AMM/Router generic (accept base, quote on each call)
-const AMM = { addr: "0xcAB8F3ed8528655E0C2fad1C504c6CfEccf50B90" };
-
-// ABIs
-const TT_AMM_ABI = [
-  "function getPair(address _base, address _quote) view returns (uint256 baseRes, uint256 quoteRes)",
-  "function getReserves() view returns (uint256 baseRes, uint256 quoteRes)",
-  "function totalSupplyLP() view returns (uint256)",
-  "function balanceOfLP(address) view returns (uint256)",
-  "function addLiquidity(address _base, address _quote, uint256 baseAmt, uint256 quoteAmt)",
-  "function removeLiquidity(address _base, address _quote, uint256 lpAmt) returns (uint256 baseOut, uint256 quoteOut)",
-  "function swapExactBaseForQuote(address _base, address _quote, uint256 baseIn, uint256 minQuoteOut)",
-  "function swapExactQuoteForBase(address _base, address _quote, uint256 quoteIn, uint256 minBaseOut)"
-];
-const ERC20_ABI = [
-  "function decimals() view returns (uint8)",
-  "function balanceOf(address) view returns (uint256)",
-  "function allowance(address,address) view returns (uint256)",
-  "function approve(address,uint256) returns (bool)"
-];
-
-/* =========================
-   State & Utils
-   ========================= */
-const $ = id => document.getElementById(id);
-const log = m => { const el=$("log"); el.textContent += (el.textContent? "\n":"") + m; el.scrollTop = el.scrollHeight; console.log(m); };
-const short = a => a ? a.slice(0,6)+"…"+a.slice(-4) : "";
-
-let provider, signer, me, rawProviderType="";
-
-function getTokenInfo(sym){ return TOKENS[sym]; }
-function parseU(v,d){ return ethers.utils.parseUnits(String(v||"0"),d); }
-function fmtU(v,d){ return ethers.utils.formatUnits(v,d); }
-
-function fillSelect(id){
-  const sel=$(id); sel.innerHTML="";
-  for(const k of Object.keys(TOKENS)){ const o=document.createElement("option"); o.value=k; o.textContent=TOKENS[k].symbol; sel.appendChild(o); }
-}
-function initSelects(){
-  fillSelect("fromToken"); fillSelect("toToken");
-  $("fromToken").value="gUSDT"; $("toToken").value="USDT0";
-  fillSelect("liqTokenA"); fillSelect("liqTokenB");
-  $("liqTokenA").value="gUSDT"; $("liqTokenB").value="USDT0";
-}
-
-async function ensureStable(){
-  const n=await provider.getNetwork();
-  if(Number(n.chainId)===STABLE.id) return;
-  try{
-    await provider.provider.request?.({ method:"wallet_switchEthereumChain", params:[{ chainId: STABLE.hex }] });
-  }catch(e){
-    if(e.code===4902){
-      await provider.provider.request?.({
-        method:"wallet_addEthereumChain",
-        params:[{ chainId:STABLE.hex, chainName:"Stable Testnet", rpcUrls:[STABLE.rpc], blockExplorerUrls:["https://blockscout.testnet.stable.xyz"], nativeCurrency:{name:"ETH",symbol:"ETH",decimals:18} }]
-      });
-    } else { throw e; }
-  }
-}
-
-/* =========================
-   Wallet Connect Modal
-   ========================= */
-const modal = $("walletModal");
-const openModal = ()=> modal.classList.add("show");
-const closeModal= ()=> modal.classList.remove("show");
-
-$("btnConnect").onclick = ()=> openModal();
-$("wClose").onclick = ()=> closeModal();
-
-$("wMeta").onclick  = async ()=> connectInjected("metamask");
-$("wTrust").onclick = async ()=> connectInjected("trust");
-$("wOKX").onclick   = async ()=> connectInjected("okx");
-$("wWC").onclick    = async ()=> connectWalletConnect();
-
-/* Injected providers */
-async function connectInjected(kind){
-  try{
-    let injected;
-    if(kind==="metamask"){ injected = window.ethereum; }
-    if(kind==="trust"){ injected = window.trustwallet?.ethereum || window.ethereum; }
-    if(kind==="okx"){ injected = window.okxwallet?.ethereum || window.ethereum; }
-    if(!injected) throw new Error("Injected provider not found.");
-    provider = new ethers.providers.Web3Provider(injected, "any");
-    await provider.send("eth_requestAccounts",[]);
-    signer = provider.getSigner(); me = await signer.getAddress(); rawProviderType = kind;
-    await ensureStable();
-    $("btnConnect").textContent = short(me);
-    $("shortAddr").textContent  = short(me);
-    log(`✅ Connected (${kind}): ${me}\nChain: ${(await provider.getNetwork()).chainId}`);
-    closeModal();
-    await onPostConnect();
-  }catch(e){ log("❌ Connect error: "+(e.message||e)); }
-}
-
-/* WalletConnect v2 */
-async function connectWalletConnect(){
-  try{
-    const pid = "YOUR_WALLETCONNECT_PROJECT_ID"; // ⬅️ ganti dengan projectId kamu
-    if(!window.WalletConnectProvider?.EthereumProvider) throw new Error("WC Provider not loaded.");
-    const wc = await window.WalletConnectProvider.EthereumProvider.init({
-      projectId: pid,
-      showQrModal: true,
-      chains: [STABLE.id],
-      optionalChains: [STABLE.id],
-      methods: ["eth_sendTransaction","eth_sign","personal_sign","eth_signTypedData","eth_signTransaction"],
-      rpcMap: { [STABLE.id]: STABLE.rpc }
-    });
-    await wc.enable();
-    provider = new ethers.providers.Web3Provider(wc, "any");
-    signer   = provider.getSigner(); me = await signer.getAddress(); rawProviderType = "walletconnect";
-    $("btnConnect").textContent = short(me);
-    $("shortAddr").textContent  = short(me);
-    log(`✅ Connected (WalletConnect): ${me}\nChain: ${(await provider.getNetwork()).chainId}`);
-    closeModal();
-    await onPostConnect();
-    // Reconnect on session events
-    wc.on("accountsChanged", async () => { me = await signer.getAddress(); $("btnConnect").textContent = short(me); $("shortAddr").textContent=short(me); await onPostConnect(); });
-    wc.on("chainChanged", async () => { await onPostConnect(); });
-    wc.on("disconnect",   () => { log("🔌 WC disconnected"); });
-  }catch(e){ log("❌ WalletConnect error: "+(e.message||e)); }
-}
-
-async function onPostConnect(){
-  try{
-    await ensureStable();
-    await refreshSwapBalances();
-    await refreshSwapReserves();
-    await refreshLiqPanel();
-  }catch(e){ log("⚠️ Post-connect warn: "+(e.message||e)); }
-}
-
-/* =========================
-   Balances & Reserves
-   ========================= */
-async function balance(addr, sym){
-  try{ const t=new ethers.Contract(TOKENS[sym].addr, ERC20_ABI, provider); return await t.balanceOf(addr); }
-  catch{ return ethers.constants.Zero; }
-}
-async function refreshSwapBalances(){
-  try{
-    const f=getTokenInfo($("fromToken").value), t=getTokenInfo($("toToken").value);
-    const bf=await balance(me,f.symbol), bt=await balance(me,t.symbol);
-    $("balFrom").textContent=fmtU(bf,f.decimals); $("balTo").textContent=fmtU(bt,t.decimals);
-  }catch{ $("balFrom").textContent="-"; $("balTo").textContent="-"; }
-}
-async function refreshSwapReserves(){
-  try{
-    const c=new ethers.Contract(AMM.addr, TT_AMM_ABI, provider);
-    const base=getTokenInfo($("fromToken").value), quote=getTokenInfo($("toToken").value);
-    if(base.symbol!=="gUSDT" && quote.symbol!=="gUSDT"){ $("priceBox").textContent="Price: pair must include gUSDT"; return; }
-    const b = (base.symbol==="gUSDT")? base.addr : quote.addr;
-    const q = (base.symbol==="gUSDT")? quote.addr: base.addr;
-    const res=await c.getPair(b,q).catch(()=>c.getReserves());
-    const baseRes=res.baseRes ?? res[0], quoteRes=res.quoteRes ?? res[1];
-    const p = Number(fmtU(quoteRes, (b===base.addr?quote.decimals:base.decimals))) / Math.max(Number(fmtU(baseRes, TOKENS.gUSDT.decimals)),1e-12);
-    $("priceBox").textContent = `Price: 1 gUSDT ≈ ${isFinite(p)?p.toFixed(6):'-'} ${(b===base.addr)? quote.symbol: base.symbol}`;
-  }catch{ $("priceBox").textContent="Price: -"; }
-}
-
-async function ensureApprove(tokenAddr, spender, amount){
-  const erc=new ethers.Contract(tokenAddr, ERC20_ABI, signer);
-  const a=await erc.allowance(me, spender);
-  if(a.gte(amount)) return;
-  const tx=await erc.approve(spender, amount);
-  log(`🧾 Approve: ${tx.hash}`); await tx.wait(); log("✅ Approve sukses");
-}
-
-/* =========================
-   SWAP
-   ========================= */
-$("btnSwap").onclick = async ()=>{
-  try{
-    if(!signer) return openModal();
-    const fromSym=$("fromToken").value, toSym=$("toToken").value;
-    if(fromSym===toSym) return alert("Pilih token berbeda.");
-    if(fromSym!=="gUSDT" && toSym!=="gUSDT") return alert("Untuk v3.6, pilih salah satu sisi gUSDT.");
-    const from=getTokenInfo(fromSym), to=getTokenInfo(toSym);
-    const amount=$("fromAmount").value.trim();
-    if(!amount) return alert("Isi jumlah swap.");
-
-    const c=new ethers.Contract(AMM.addr, TT_AMM_ABI, signer);
-    if(fromSym==="gUSDT"){
-      const inAmt=parseU(amount, from.decimals);
-      await ensureApprove(from.addr, AMM.addr, inAmt);
-      log(`🔄 Swap gUSDT → ${to.symbol}...`);
-      const tx=await c.swapExactBaseForQuote(from.addr, to.addr, inAmt, 0);
-      log("⏳ TX: "+tx.hash); await tx.wait(); log("✅ Swap sukses!");
-    }else{
-      const inAmt=parseU(amount, from.decimals);
-      await ensureApprove(from.addr, AMM.addr, inAmt);
-      log(`🔁 Swap ${from.symbol} → gUSDT...`);
-      const tx=await c.swapExactQuoteForBase(TOKENS.gUSDT.addr, from.addr, inAmt, 0);
-      log("⏳ TX: "+tx.hash); await tx.wait(); log("✅ Swap sukses!");
-    }
-    await refreshSwapBalances(); await refreshSwapReserves();
-  }catch(e){ log("❌ Swap error: "+(e.reason||e.message||e)); }
-};
-
-/* =========================
-   LIQUIDITY (any pair)
-   ========================= */
-function liqPair(){
-  const A=getTokenInfo($("liqTokenA").value), B=getTokenInfo($("liqTokenB").value);
-  if(A.symbol===B.symbol) throw new Error("Token A dan B harus berbeda."); return [A,B];
-}
-async function refreshLiqPanel(){
-  try{
-    const [A,B]=liqPair();
-    const c=new ethers.Contract(AMM.addr, TT_AMM_ABI, provider);
-    const res=await c.getPair(A.addr,B.addr).catch(()=>c.getReserves());
-    const aRes=res.baseRes ?? res[0], bRes=res.quoteRes ?? res[1];
-    $("reservesBox").textContent = `${A.symbol} ${fmtU(aRes,A.decimals)} | ${B.symbol} ${fmtU(bRes,B.decimals)}`;
-    const lp=await c.balanceOfLP(me);
-    $("lpBox").textContent = `${fmtU(lp,18)} LP`;
-  }catch{ $("reservesBox").textContent="-"; $("lpBox").textContent="-"; }
-}
-$("btnAdd").onclick = async ()=>{
-  try{
-    if(!signer) return openModal();
-    const [A,B]=liqPair();
-    const aH=$("liqAmtA").value.trim(), bH=$("liqAmtB").value.trim();
-    if(!aH||!bH) return alert("Isi Amount A & B.");
-    const aAmt=parseU(aH,A.decimals), bAmt=parseU(bH,B.decimals);
-    const c=new ethers.Contract(AMM.addr, TT_AMM_ABI, signer);
-    await ensureApprove(A.addr, AMM.addr, aAmt);
-    await ensureApprove(B.addr, AMM.addr, bAmt);
-    log(`💧 Add Liquidity ${A.symbol}/${B.symbol}...`);
-    const tx=await c.addLiquidity(A.addr, B.addr, aAmt, bAmt);
-    log("⏳ TX: "+tx.hash); await tx.wait(); log("✅ Liquidity added");
-    await refreshLiqPanel();
-  }catch(e){ log("❌ Add error: "+(e.reason||e.message||e)); }
-};
-$("btnRemove").onclick = async ()=>{
-  try{
-    if(!signer) return openModal();
-    const [A,B]=liqPair();
-    const lpH=$("lpAmt").value.trim(); if(!lpH) return alert("Isi LP to remove (18d).");
-    const lpAmt=ethers.utils.parseUnits(lpH,18);
-    const c=new ethers.Contract(AMM.addr, TT_AMM_ABI, signer);
-    log(`🧹 Remove LP ${A.symbol}/${B.symbol}...`);
-    const tx=await c.removeLiquidity(A.addr, B.addr, lpAmt);
-    log("⏳ TX: "+tx.hash); await tx.wait(); log("✅ Remove liquidity done");
-    await refreshLiqPanel();
-  }catch(e){ log("❌ Remove error: "+(e.reason||e.message||e)); }
-};
-
-/* =========================
-   UI & Init
-   ========================= */
-$("fromToken").onchange = ()=>{ refreshSwapBalances(); refreshSwapReserves(); };
-$("toToken").onchange   = ()=>{ refreshSwapBalances(); refreshSwapReserves(); };
-$("liqTokenA").onchange = refreshLiqPanel;
-$("liqTokenB").onchange = refreshLiqPanel;
-
-$("tabSwap").onclick = ()=>{
-  $("tabSwap").classList.add("active"); $("tabLiq").classList.remove("active");
-  $("panelSwap").classList.add("active"); $("panelLiq").classList.remove("active");
-};
-$("tabLiq").onclick = ()=>{
-  $("tabLiq").classList.add("active"); $("tabSwap").classList.remove("active");
-  $("panelLiq").classList.add("active"); $("panelSwap").classList.remove("active");
-};
-
-initSelects();
-</script>
+  <!-- JS -->
+  <script src="app.js"></script>
 </body>
 </html>
