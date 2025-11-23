@@ -2,65 +2,50 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>StableSwap</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UNISWOP</title>
 
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 </head>
-<body>
 
+<body>
   <header class="nav">
-    <div class="brand">StableSwap</div>
-    <button id="connectBtn" class="btn-connect">Connect</button>
+    <div class="brand">UNISWOP</div>
+    <button id="connectBtn" class="connect-btn">Connect Wallet</button>
   </header>
 
-  <main class="container">
-
+  <main class="wrapper">
     <section class="swap-box">
+      <div class="top-label">Swap</div>
 
-      <div class="tabs">
-        <button id="tabSwap" class="tab active">Swap</button>
-        <button id="tabWrap" class="tab">Wrap</button>
+      <!-- FROM -->
+      <div class="input-card">
+        <label>Dari</label>
+        <div class="row">
+          <input id="swapInput" placeholder="0.00" />
+          <button id="fromToken" class="token-btn">wGUSDT ▾</button>
+        </div>
+        <div class="balance">Saldo: <span id="balFrom">-</span></div>
       </div>
 
-      <div id="panelSwap">
+      <!-- ARROW -->
+      <button id="flipBtn" class="flip-btn">⇅</button>
 
-        <div class="input-card">
-          <label>From</label>
-          <div class="input-row">
-            <input id="swapInput" placeholder="0.0" />
-            <div class="token-pill">wGUSDT</div>
-          </div>
+      <!-- TO -->
+      <div class="input-card">
+        <label>Ke</label>
+        <div class="row">
+          <input id="swapOutput" placeholder="0.00" disabled />
+          <button id="toToken" class="token-btn">OOPS ▾</button>
         </div>
-
-        <div class="arrow">↓</div>
-
-        <div class="input-card">
-          <label>To</label>
-          <div class="input-row disabled">
-            <input id="swapOutput" placeholder="0.0" disabled />
-            <div class="token-pill">OOPS</div>
-          </div>
-        </div>
-
-        <button id="swapBtn" class="btn-primary" disabled>Swap</button>
+        <div class="balance">Estimasi: <span id="balToLabel">-</span></div>
       </div>
 
-      <div id="panelWrap" style="display:none;">
+      <!-- MAIN BUTTON -->
+      <button id="swapBtn" class="main-btn" disabled>Swap</button>
 
-        <div class="input-card">
-          <label>Amount</label>
-          <div class="input-row">
-            <input id="wrapInput" placeholder="0.0" />
-            <div class="token-pill">gUSDT / wGUSDT</div>
-          </div>
-        </div>
-
-        <button id="wrapBtn" class="btn-primary" disabled>Wrap</button>
-        <button id="unwrapBtn" class="btn-secondary" disabled>Unwrap</button>
-      </div>
-
+      <!-- STATUS -->
       <div id="status" class="status"></div>
     </section>
   </main>
