@@ -5,68 +5,76 @@
   <title>UNISWOP</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- CSS -->
   <link rel="stylesheet" href="style.css" />
-
-  <!-- Ethers -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 </head>
-
 <body>
-  <div class="container">
-
-    <div class="brand">UNISWOP</div>
-    <div class="sub">Wallet Actions</div>
-
-    <button id="connectBtn" class="btn-primary" style="margin-bottom:14px;">
-      Connect Wallet
-    </button>
-
-    <div class="tabs">
-      <div id="tabWrap" class="tab active">Wrap / Unwrap</div>
-      <div id="tabSwap" class="tab">Swap</div>
-    </div>
-
-    <!-- WRAP PANEL -->
-    <div id="panelWrap" class="card">
-      <div class="label">Amount</div>
-      <div class="input-box">
-        <input type="text" placeholder="0.0" id="wrapInput" />
-        <div class="token-tag">gUSDT / wGUSDT</div>
+  <div class="app-root">
+    <header class="app-header">
+      <div class="app-logo">UNISWOP</div>
+      <div class="header-right">
+        <span class="network-pill">Stable Testnet</span>
+        <button id="connectBtn" class="btn btn-primary">Connect Wallet</button>
       </div>
+    </header>
 
-      <button class="btn-primary" style="margin-top:12px;" id="wrapBtn" disabled>
-        Wrap
-      </button>
+    <main class="app-main">
+      <section class="swap-card">
+        <div class="card-header">
+          <div class="card-title">Swap & Wrap</div>
+          <div class="wallet-display" id="walletDisplay">Not connected</div>
+        </div>
 
-      <button style="margin-top:8px;" id="unwrapBtn" disabled>
-        Unwrap
-      </button>
-    </div>
+        <div class="balances">
+          <div> wGUSDT: <span id="balWg">-</span> </div>
+          <div> OOPS: <span id="balOops">-</span> </div>
+        </div>
 
-    <!-- SWAP PANEL -->
-    <div id="panelSwap" class="card" style="display:none;">
-      <div class="label">From</div>
-      <div class="input-box">
-        <input type="text" placeholder="0.0" id="swapInput" />
-        <div class="token-tag">wGUSDT</div>
-      </div>
+        <div class="tabs">
+          <button id="tabWrap" class="tab active">Wrap / Unwrap</button>
+          <button id="tabSwap" class="tab">Swap</button>
+        </div>
 
-      <div class="label" style="margin-top:12px;">To</div>
-      <div class="input-box">
-        <input type="text" placeholder="0.0" disabled />
-        <div class="token-tag">OOPS</div>
-      </div>
+        <!-- WRAP / UNWRAP PANEL -->
+        <div id="panelWrap">
+          <label class="field-label">Amount</label>
+          <div class="amount-box">
+            <input id="wrapInput" type="text" placeholder="0.0" />
+            <div class="token-chip">gUSDT ⇄ wGUSDT</div>
+          </div>
 
-      <button class="btn-primary" style="margin-top:12px;" id="swapBtn" disabled>
-        Swap
-      </button>
-    </div>
+          <button id="wrapBtn" class="btn btn-primary btn-full" disabled>
+            Wrap gUSDT → wGUSDT
+          </button>
+          <button id="unwrapBtn" class="btn btn-secondary btn-full" disabled>
+            Unwrap wGUSDT → gUSDT
+          </button>
+        </div>
 
-    <div id="status"></div>
+        <!-- SWAP PANEL -->
+        <div id="panelSwap" style="display:none;">
+          <label class="field-label">From (wGUSDT)</label>
+          <div class="amount-box">
+            <input id="swapInput" type="text" placeholder="0.0" />
+            <div class="token-chip">wGUSDT</div>
+          </div>
+
+          <label class="field-label" style="margin-top:10px;">To (OOPS)</label>
+          <div class="amount-box disabled">
+            <input type="text" placeholder="estimated" id="swapOutput" disabled />
+            <div class="token-chip">OOPS</div>
+          </div>
+
+          <button id="swapBtn" class="btn btn-primary btn-full" disabled>
+            Swap wGUSDT → OOPS
+          </button>
+        </div>
+
+        <div id="status" class="status-box"></div>
+      </section>
+    </main>
   </div>
 
-  <!-- JS -->
   <script src="app.js"></script>
 </body>
 </html>
