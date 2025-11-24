@@ -1,3 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>UNISWOP</title>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+
+<style>
+body {
+  font-family: system-ui, sans-serif;
+  background: #f8fafc;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 22px;
+}
+
+.swap-box, .lp-box {
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 22px 18px;
+  margin-top: 18px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #e2e8f0;
+  padding: 12px 14px;
+  border-radius: 14px;
+}
+
+.row input {
+  flex: 1;
+  font-size: 28px;
+  border: none;
+  outline: none;
+}
+
+.token-btn {
+  background: #ecfdf5;
+  color: #0f766e;
+  padding: 6px 16px;
+  border-radius: 14px;
+  border: 1px solid #99f6e4;
+}
+
+.main-btn {
+  width: 100%;
+  background: #3b82f6;
+  color: #fff;
+  padding: 16px;
+  border: none;
+  border-radius: 16px;
+  margin-top: 18px;
+  font-size: 18px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>UNISWOP</h2>
+
+<button id="connectBtn" class="main-btn" style="max-width:200px;">Connect</button>
+
+<section class="swap-box">
+  <div class="input-card">
+    <label>From</label>
+    <div class="row">
+      <input id="swapInput" placeholder="0.00" />
+      <button class="token-btn">wGUSDT</button>
+    </div>
+  </div>
+
+  <button id="swapBtn" class="main-btn" disabled>Swap</button>
+  <div id="status" class="status"></div>
+</section>
+
 <script>
 const WGUSDT_ADDRESS = "0xfDb4190419F2b0453Dad7567dEF44E6AB07096c6";
 const OOPS_ADDRESS   = "0xB0CBCcEe94c957Fa21A97551C825C4e71ADfF93D";
@@ -7,7 +93,6 @@ const DECIMALS = 18;
 
 let provider, signer, userAddress;
 
-// ================= CONNECT WALLET =================
 const connectBtn = document.getElementById("connectBtn");
 connectBtn.onclick = async () => {
   await window.ethereum.request({ method: "eth_requestAccounts" });
@@ -18,7 +103,6 @@ connectBtn.onclick = async () => {
   document.getElementById("swapBtn").disabled = false;
 };
 
-// ================= CONTRACT SETUP =================
 const erc20ABI = [
   "function approve(address spender,uint256 amount) external returns(bool)"
 ];
@@ -27,31 +111,28 @@ const routerABI = [
   "function swapExactTokensForTokens(uint amountIn,uint amountOutMin,address[] calldata path,address to,uint deadline) external returns (uint[] memory amounts)"
 ];
 
-let wgusdt, oops, router;
+let wgusdt, router;
 
 function loadContracts() {
   wgusdt = new ethers.Contract(WGUSDT_ADDRESS, erc20ABI, signer);
-  oops   = new ethers.Contract(OOPS_ADDRESS,   erc20ABI, signer);
   router = new ethers.Contract(ROUTER_ADDRESS, routerABI, signer);
 }
 
-// ================= REAL SWAP LOGIC =================
 const swapBtn = document.getElementById("swapBtn");
 swapBtn.onclick = async () => {
   const status = document.getElementById("status");
-
   try {
     loadContracts();
 
     const amountInStr = document.getElementById("swapInput").value.trim();
-    if (!amountInStr || Number(amountInStr) <= 0) {
+    if (!amountInStr) {
       status.textContent = "Enter amount first.";
       return;
     }
 
     const amountIn = ethers.utils.parseUnits(amountInStr, DECIMALS);
 
-    status.textContent = "⏳ Approving wGUSDT...";
+    status.textContent = "⏳ Approving...";
     const tx1 = await wgusdt.approve(ROUTER_ADDRESS, amountIn);
     await tx1.wait();
 
@@ -71,14 +152,10 @@ swapBtn.onclick = async () => {
 
     status.textContent = "✅ Swap success!";
   } catch(e){
-    status.textContent = "❌ Error: " + (e.reason || e.message);
-    console.error(e);
+    status.textContent = "❌ " + (e.reason || e.message);
   }
 };
-
-// =============== ADD LP (TETAP ADA) ===============
-const addLpBtn = document.getElementById("addLpBtn");
-addLpBtn.onclick = async () => {
-  document.getElementById("lpStatus").textContent = "✅ Phase 2 nanti.";
-};
 </script>
+
+</body>
+</html>
