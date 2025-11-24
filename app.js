@@ -15,7 +15,7 @@ const TOKENS = {
 const PAIR_ADDRESS = "0xc5D2b0D1b6BAe03571dF97D6f389AB47Af7a0d30";
 const ROUTER_ADDRESS = "0xe1aEe57F48830876B37A1a7d04d73eF9F1d069f2";
 const STABLE_CHAIN_ID = 2201;
-const COMMON_DECIMALS = 18;
+const LP_DECIMALS = 18; // Uniswap V2 LP default
 
 // ==== ABIs (minimal) ====
 const ERC20_ABI = [
@@ -41,7 +41,7 @@ const PAIR_ABI = [
 // ==== GLOBAL STATE ====
 let provider, signer, userAddress;
 let router, pair;
-let token0, token1;
+let token0, token1; // addresses from pair
 let fromTokenKey = "WGUSDT";
 let toTokenKey = "OOPS";
 let currentTokenSide = null; // "from" | "to"
@@ -93,12 +93,23 @@ function getToken(key) {
   return TOKENS[key];
 }
 
-function otherToken(key) {
-  return key === "WGUSDT" ? "OOPS" : "WGUSDT";
+function parseAmount(humanStr, tokenKey) {
+  // Human: "1" / "0.5" / "10" -> onchain with decimals
+  const t = getToken(tokenKey);
+  return ethers.utils.parseUnits(humanStr, t.decimals);
+}
+
+function formatAmount(bn, tokenKey) {
+  const t = getToken(tokenKey);
+  return ethers.utils.formatUnits(bn, t.decimals);
 }
 
 function nowPlus(seconds) {
   return Math.floor(Date.now() / 1000) + seconds;
+}
+
+function otherToken(key) {
+  return key === "WGUSDT" ? "OOPS" : "WGUSDT";
 }
 
 // ==== UI TABS ====
@@ -123,28 +134,27 @@ function openTokenModal(side) {
 
   Object.keys(TOKENS).forEach((key) => {
     const t = TOKENS[key];
-    const item = document.createElement("button");
-    item.className = "token-item";
-    item.type = "button";
-    item.innerHTML = `<span>${t.symbol}</span><span>${t.address.slice(0, 6)}...${t.address.slice(-4)}</span>`;
-    item.onclick = () => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "token-item";
+    btn.innerHTML = `<span>${t.symbol}</span><span>${t.address.slice(
+      0,
+      6
+    )}...${t.address.slice(-4)}</span>`;
+    btn.onclick = () => {
       if (side === "from") {
         fromTokenKey = key;
-        if (toTokenKey === fromTokenKey) {
-          toTokenKey = otherToken(fromTokenKey);
-        }
-      } else if (side === "to") {
+        if (fromTokenKey === toTokenKey) toTokenKey = otherToken(fromTokenKey);
+      } else {
         toTokenKey = key;
-        if (fromTokenKey === toTokenKey) {
-          fromTokenKey = otherToken(toTokenKey);
-        }
+        if (fromTokenKey === toTokenKey) fromTokenKey = otherToken(toTokenKey);
       }
       updateTokenLabels();
       closeTokenModal();
       updateBalances();
       quoteOutput();
     };
-    tokenList.appendChild(item);
+    tokenList.appendChild(btn);
   });
 
   tokenModal.classList.remove("hidden");
@@ -179,7 +189,9 @@ connectButton.onclick = async () => {
     provider = new ethers.providers.Web3Provider(window.ethereum);
     const net = await provider.getNetwork();
     if (net.chainId !== STABLE_CHAIN_ID) {
-      alert(`Pastikan network = Stable Testnet (chainId ${STABLE_CHAIN_ID}). Chain sekarang: ${net.chainId}`);
+      alert(
+        `Pastikan network = Stable Testnet (chainId ${STABLE_CHAIN_ID}). Chain sekarang: ${net.chainId}`
+      );
     }
 
     signer = provider.getSigner();
@@ -189,9 +201,8 @@ connectButton.onclick = async () => {
     router = new ethers.Contract(ROUTER_ADDRESS, ROUTER_ABI, signer);
     pair = new ethers.Contract(PAIR_ADDRESS, PAIR_ABI, provider);
 
-    // fetch pair tokens (token0/token1)
-    token0 = await pair.token0();
-    token1 = await pair.token1();
+    token0 = (await pair.token0()).toLowerCase();
+    token1 = (await pair.token1()).toLowerCase();
 
     swapActionButton.disabled = false;
     addLpButton.disabled = false;
@@ -208,14 +219,13 @@ connectButton.onclick = async () => {
 // ==== BALANCES ====
 async function erc20Balance(address, tokenAddress) {
   const c = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
-  const bal = await c.balanceOf(address);
-  return bal;
+  return await c.balanceOf(address);
 }
 
 async function updateBalances() {
   if (!provider || !userAddress) return;
   try {
-    const [balFrom, balTo, balWA, balOB] = await Promise.all([
+    const [balFrom, balTo, balWG, balOOPS] = await Promise.all([
       erc20Balance(userAddress, getToken(fromTokenKey).address),
       erc20Balance(userAddress, getToken(toTokenKey).address),
       erc20Balance(userAddress, TOKENS.WGUSDT.address),
@@ -223,14 +233,12 @@ async function updateBalances() {
     ]);
 
     fromBalanceLabel.textContent =
-      "Balance: " + ethers.utils.formatUnits(balFrom, COMMON_DECIMALS);
+      "Balance: " + formatAmount(balFrom, fromTokenKey);
     toBalanceLabel.textContent =
-      "Balance: " + ethers.utils.formatUnits(balTo, COMMON_DECIMALS);
+      "Balance: " + formatAmount(balTo, toTokenKey);
 
-    lpBalA.textContent =
-      "Balance: " + ethers.utils.formatUnits(balWA, COMMON_DECIMALS);
-    lpBalB.textContent =
-      "Balance: " + ethers.utils.formatUnits(balOB, COMMON_DECIMALS);
+    lpBalA.textContent = "Balance: " + formatAmount(balWG, "WGUSDT");
+    lpBalB.textContent = "Balance: " + formatAmount(balOOPS, "OOPS");
   } catch (e) {
     console.error("updateBalances", e);
   }
@@ -240,28 +248,27 @@ async function updateLpBalance() {
   if (!pair || !userAddress) return;
   try {
     const bal = await pair.balanceOf(userAddress);
-    lpBalanceSpan.textContent = ethers.utils.formatUnits(bal, COMMON_DECIMALS);
+    lpBalanceSpan.textContent = ethers.utils.formatUnits(bal, LP_DECIMALS);
   } catch (e) {
     console.error("updateLpBalance", e);
   }
 }
 
-// ==== QUOTE (PAIR RESERVES) ====
+// ==== QUOTE (dari reserves pair) ====
 async function quoteOutput() {
-  if (!pair) return;
-  const val = swapFromAmount.value.trim();
-  if (!val) {
+  if (!pair || !swapFromAmount.value.trim()) {
     swapToAmount.value = "";
     return;
   }
   try {
-    const amountIn = ethers.utils.parseUnits(val, COMMON_DECIMALS);
+    const inputHuman = swapFromAmount.value.trim();
+    const amountIn = parseAmount(inputHuman, fromTokenKey);
+
     const [r0, r1] = await pair.getReserves();
     const fromAddr = getToken(fromTokenKey).address.toLowerCase();
 
-    const token0Addr = token0.toLowerCase();
     let reserveIn, reserveOut;
-    if (fromAddr === token0Addr) {
+    if (fromAddr === token0) {
       reserveIn = r0;
       reserveOut = r1;
     } else {
@@ -273,10 +280,8 @@ async function quoteOutput() {
     const numerator = amountInWithFee.mul(reserveOut);
     const denominator = reserveIn.mul(1000).add(amountInWithFee);
     const amountOut = numerator.div(denominator);
-    swapToAmount.value = ethers.utils.formatUnits(
-      amountOut,
-      COMMON_DECIMALS
-    );
+
+    swapToAmount.value = formatAmount(amountOut, toTokenKey);
   } catch (e) {
     console.error("quoteOutput", e);
   }
@@ -286,7 +291,7 @@ swapFromAmount.oninput = () => {
   quoteOutput();
 };
 
-// ==== SWAP ====
+// ==== APPROVE HELP ====
 async function ensureAllowance(tokenAddress, owner, spender, amount) {
   const c = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
   const current = await c.allowance(owner, spender);
@@ -295,6 +300,7 @@ async function ensureAllowance(tokenAddress, owner, spender, amount) {
   await tx.wait();
 }
 
+// ==== SWAP ====
 swapFlipButton.onclick = () => {
   const tmp = fromTokenKey;
   fromTokenKey = toTokenKey;
@@ -309,26 +315,26 @@ swapActionButton.onclick = async () => {
     alert("Connect wallet dulu.");
     return;
   }
+
   const raw = swapFromAmount.value.trim();
   if (!raw || Number(raw) <= 0) {
-    setStatus(swapStatus, "Enter amount.");
+    setStatus(swapStatus, "Masukkan jumlah dulu (contoh: 1, 0.5, 10).");
     return;
   }
 
   const tokenIn = getToken(fromTokenKey);
   const tokenOut = getToken(toTokenKey);
-  const amountIn = ethers.utils.parseUnits(raw, COMMON_DECIMALS);
 
   try {
-    setStatus(swapStatus, "⏳ Approve " + tokenIn.symbol + "...");
-    await ensureAllowance(
-      tokenIn.address,
-      userAddress,
-      ROUTER_ADDRESS,
-      amountIn
-    );
+    const amountIn = parseAmount(raw, fromTokenKey);
 
-    setStatus(swapStatus, "🔥 Swap in progress...");
+    setStatus(
+      swapStatus,
+      `⏳ Approving ${tokenIn.symbol} (UI otomatis handle decimals)...`
+    );
+    await ensureAllowance(tokenIn.address, userAddress, ROUTER_ADDRESS, amountIn);
+
+    setStatus(swapStatus, "🔥 Swapping...");
     const path = [tokenIn.address, tokenOut.address];
     const tx = await router.swapExactTokensForTokens(
       amountIn,
@@ -346,7 +352,8 @@ swapActionButton.onclick = async () => {
     console.error("swapAction", e);
     setStatus(
       swapStatus,
-      "❌ " + (e.reason || e.data?.message || e.message || "Swap failed")
+      "❌ " +
+        (e.reason || e.data?.message || e.message || "Swap failed / execution reverted")
     );
   }
 };
@@ -357,17 +364,21 @@ addLpButton.onclick = async () => {
     alert("Connect wallet dulu.");
     return;
   }
+
   const rawA = addAmountA.value.trim();
   const rawB = addAmountB.value.trim();
-  if (!rawA || !rawB) {
-    setStatus(addLpStatus, "Isi amount dua-duanya.");
+  if (!rawA || !rawB || Number(rawA) <= 0 || Number(rawB) <= 0) {
+    setStatus(
+      addLpStatus,
+      "Isi jumlah wGUSDT & OOPS (contoh: 1 dan 0.5, bukan angka decimals)."
+    );
     return;
   }
 
-  const amountA = ethers.utils.parseUnits(rawA, COMMON_DECIMALS);
-  const amountB = ethers.utils.parseUnits(rawB, COMMON_DECIMALS);
-
   try {
+    const amountA = parseAmount(rawA, "WGUSDT");
+    const amountB = parseAmount(rawB, "OOPS");
+
     setStatus(addLpStatus, "⏳ Approve wGUSDT...");
     await ensureAllowance(
       TOKENS.WGUSDT.address,
@@ -405,12 +416,13 @@ addLpButton.onclick = async () => {
     console.error("addLiquidity", e);
     setStatus(
       addLpStatus,
-      "❌ " + (e.reason || e.data?.message || e.message || "Add LP failed")
+      "❌ " +
+        (e.reason || e.data?.message || e.message || "Add LP failed / execution reverted")
     );
   }
 };
 
-// ==== REMOVE LIQUIDITY (100%) ====
+// ==== REMOVE LIQUIDITY 100% ====
 removeLpButton.onclick = async () => {
   if (!signer || !userAddress) {
     alert("Connect wallet dulu.");
@@ -419,7 +431,7 @@ removeLpButton.onclick = async () => {
   try {
     const lpBal = await pair.balanceOf(userAddress);
     if (lpBal.isZero()) {
-      setStatus(removeLpStatus, "LP balance zero.");
+      setStatus(removeLpStatus, "LP balance 0.");
       return;
     }
 
@@ -451,7 +463,11 @@ removeLpButton.onclick = async () => {
     console.error("removeLiquidity", e);
     setStatus(
       removeLpStatus,
-      "❌ " + (e.reason || e.data?.message || e.message || "Remove LP failed")
+      "❌ " +
+        (e.reason ||
+          e.data?.message ||
+          e.message ||
+          "Remove LP failed / execution reverted")
     );
   }
 };
