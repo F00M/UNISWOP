@@ -1,161 +1,135 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>UNISWOP</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UNISWOP</title>
 
-<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
-
-<style>
-body {
-  font-family: system-ui, sans-serif;
-  background: #f8fafc;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 22px;
-}
-
-.swap-box, .lp-box {
-  width: 100%;
-  max-width: 420px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
-  padding: 22px 18px;
-  margin-top: 18px;
-}
-
-.row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border: 1px solid #e2e8f0;
-  padding: 12px 14px;
-  border-radius: 14px;
-}
-
-.row input {
-  flex: 1;
-  font-size: 28px;
-  border: none;
-  outline: none;
-}
-
-.token-btn {
-  background: #ecfdf5;
-  color: #0f766e;
-  padding: 6px 16px;
-  border-radius: 14px;
-  border: 1px solid #99f6e4;
-}
-
-.main-btn {
-  width: 100%;
-  background: #3b82f6;
-  color: #fff;
-  padding: 16px;
-  border: none;
-  border-radius: 16px;
-  margin-top: 18px;
-  font-size: 18px;
-}
-</style>
+  <link rel="stylesheet" href="style.css" />
+  <!-- ethers.js -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 </head>
-
 <body>
-
-<h2>UNISWOP</h2>
-
-<button id="connectBtn" class="main-btn" style="max-width:200px;">Connect</button>
-
-<section class="swap-box">
-  <div class="input-card">
-    <label>From</label>
-    <div class="row">
-      <input id="swapInput" placeholder="0.00" />
-      <button class="token-btn">wGUSDT</button>
+  <header class="nav">
+    <div class="nav-left">
+      <div class="logo-dot"></div>
+      <div class="brand">UNISWOP</div>
     </div>
-  </div>
+    <button id="connectButton" class="btn connect">Connect Wallet</button>
+  </header>
 
-  <button id="swapBtn" class="main-btn" disabled>Swap</button>
-  <div id="status" class="status"></div>
-</section>
+  <main class="page">
+    <section class="card">
 
-<script>
-const WGUSDT_ADDRESS = "0xfDb4190419F2b0453Dad7567dEF44E6AB07096c6";
-const OOPS_ADDRESS   = "0xB0CBCcEe94c957Fa21A97551C825C4e71ADfF93D";
-const ROUTER_ADDRESS = "0xe1aEe57F48830876B37A1a7d04d73eF9F1d069f2";
+      <!-- Tabs -->
+      <div class="tabs">
+        <button id="tab-swap" class="tab active">Swap</button>
+        <button id="tab-liquidity" class="tab">Liquidity</button>
+      </div>
 
-const DECIMALS = 18;
+      <!-- Swap panel -->
+      <div id="panel-swap" class="panel active">
+        <div class="label-row">
+          <span>Swap</span>
+        </div>
 
-let provider, signer, userAddress;
+        <!-- FROM -->
+        <div class="token-box">
+          <div class="row-top">
+            <span class="small-label">From</span>
+            <span id="fromBalance" class="small-label right">Balance: -</span>
+          </div>
+          <div class="row-main">
+            <input id="swapFromAmount" placeholder="0.0" autocomplete="off" />
+            <button id="swapFromTokenBtn" class="token-pill">
+              <span id="swapFromTokenSymbol">wGUSDT</span>
+              <span class="caret">▾</span>
+            </button>
+          </div>
+        </div>
 
-const connectBtn = document.getElementById("connectBtn");
-connectBtn.onclick = async () => {
-  await window.ethereum.request({ method: "eth_requestAccounts" });
-  provider = new ethers.providers.Web3Provider(window.ethereum);
-  signer   = provider.getSigner();
-  userAddress = await signer.getAddress();
-  connectBtn.textContent = userAddress.slice(0,6)+"..."+userAddress.slice(-4);
-  document.getElementById("swapBtn").disabled = false;
-};
+        <!-- Flip -->
+        <button id="swapFlipButton" class="flip-btn">⇅</button>
 
-const erc20ABI = [
-  "function approve(address spender,uint256 amount) external returns(bool)"
-];
+        <!-- TO -->
+        <div class="token-box">
+          <div class="row-top">
+            <span class="small-label">To</span>
+            <span id="toBalance" class="small-label right">Balance: -</span>
+          </div>
+          <div class="row-main">
+            <input id="swapToAmount" placeholder="0.0" disabled />
+            <button id="swapToTokenBtn" class="token-pill">
+              <span id="swapToTokenSymbol">OOPS</span>
+              <span class="caret">▾</span>
+            </button>
+          </div>
+        </div>
 
-const routerABI = [
-  "function swapExactTokensForTokens(uint amountIn,uint amountOutMin,address[] calldata path,address to,uint deadline) external returns (uint[] memory amounts)"
-];
+        <button id="swapActionButton" class="btn primary full">Swap</button>
+        <div id="swapStatus" class="status"></div>
+      </div>
 
-let wgusdt, router;
+      <!-- Liquidity panel -->
+      <div id="panel-liquidity" class="panel">
+        <div class="label-row">
+          <span>Add / Remove Liquidity</span>
+        </div>
 
-function loadContracts() {
-  wgusdt = new ethers.Contract(WGUSDT_ADDRESS, erc20ABI, signer);
-  router = new ethers.Contract(ROUTER_ADDRESS, routerABI, signer);
-}
+        <!-- Add LP -->
+        <div class="subcard">
+          <div class="subcard-title">Add Liquidity (wGUSDT / OOPS)</div>
+          <div class="token-box small">
+            <div class="row-top">
+              <span class="small-label">wGUSDT</span>
+              <span id="lpBalA" class="small-label right">Balance: -</span>
+            </div>
+            <div class="row-main">
+              <input id="addAmountA" placeholder="0.0" autocomplete="off" />
+            </div>
+          </div>
 
-const swapBtn = document.getElementById("swapBtn");
-swapBtn.onclick = async () => {
-  const status = document.getElementById("status");
-  try {
-    loadContracts();
+          <div class="token-box small">
+            <div class="row-top">
+              <span class="small-label">OOPS</span>
+              <span id="lpBalB" class="small-label right">Balance: -</span>
+            </div>
+            <div class="row-main">
+              <input id="addAmountB" placeholder="0.0" autocomplete="off" />
+            </div>
+          </div>
 
-    const amountInStr = document.getElementById("swapInput").value.trim();
-    if (!amountInStr) {
-      status.textContent = "Enter amount first.";
-      return;
-    }
+          <button id="addLpButton" class="btn primary full">Add Liquidity</button>
+          <div id="addLpStatus" class="status"></div>
+        </div>
 
-    const amountIn = ethers.utils.parseUnits(amountInStr, DECIMALS);
+        <!-- Remove LP -->
+        <div class="subcard">
+          <div class="subcard-title">Remove Liquidity</div>
+          <div class="lp-row">
+            <span>LP Balance:</span>
+            <span id="lpBalance">-</span>
+          </div>
+          <button id="removeLpButton" class="btn danger full">Remove 100%</button>
+          <div id="removeLpStatus" class="status"></div>
+        </div>
+      </div>
+    </section>
 
-    status.textContent = "⏳ Approving...";
-    const tx1 = await wgusdt.approve(ROUTER_ADDRESS, amountIn);
-    await tx1.wait();
+    <!-- Simple token selector dropdown -->
+    <div id="tokenModal" class="token-modal hidden">
+      <div class="token-modal-inner">
+        <div class="token-modal-header">
+          <span>Select token</span>
+          <button id="closeTokenModal" class="close-btn">✕</button>
+        </div>
+        <div id="tokenList" class="token-list">
+          <!-- filled by JS -->
+        </div>
+      </div>
+    </div>
+  </main>
 
-    status.textContent = "🔥 Swapping...";
-    const path = [WGUSDT_ADDRESS, OOPS_ADDRESS];
-
-    const tx2 = await router.swapExactTokensForTokens(
-      amountIn,
-      0,
-      path,
-      userAddress,
-      Math.floor(Date.now()/1000) + 600
-    );
-
-    status.textContent = "⏳ Tx: " + tx2.hash;
-    await tx2.wait();
-
-    status.textContent = "✅ Swap success!";
-  } catch(e){
-    status.textContent = "❌ " + (e.reason || e.message);
-  }
-};
-</script>
-
+  <script src="app.js"></script>
 </body>
 </html>
