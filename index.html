@@ -1,55 +1,84 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>UNISWOP</title>
+<script>
+const WGUSDT_ADDRESS = "0xfDb4190419F2b0453Dad7567dEF44E6AB07096c6";
+const OOPS_ADDRESS   = "0xB0CBCcEe94c957Fa21A97551C825C4e71ADfF93D";
+const ROUTER_ADDRESS = "0xe1aEe57F48830876B37A1a7d04d73eF9F1d069f2";
 
-  <link rel="stylesheet" href="style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-</head>
+const DECIMALS = 18;
 
-<body>
-  <header class="nav">
-    <div class="brand">UNISWOP</div>
-    <button id="connectBtn" class="connect-btn">Connect Wallet</button>
-  </header>
+let provider, signer, userAddress;
 
-  <main class="wrapper">
-    <section class="swap-box">
-      <div class="top-label">Swap</div>
+// ================= CONNECT WALLET =================
+const connectBtn = document.getElementById("connectBtn");
+connectBtn.onclick = async () => {
+  await window.ethereum.request({ method: "eth_requestAccounts" });
+  provider = new ethers.providers.Web3Provider(window.ethereum);
+  signer   = provider.getSigner();
+  userAddress = await signer.getAddress();
+  connectBtn.textContent = userAddress.slice(0,6)+"..."+userAddress.slice(-4);
+  document.getElementById("swapBtn").disabled = false;
+};
 
-      <!-- FROM -->
-      <div class="input-card">
-        <label>Dari</label>
-        <div class="row">
-          <input id="swapInput" placeholder="0.00" />
-          <button id="fromToken" class="token-btn">wGUSDT ▾</button>
-        </div>
-        <div class="balance">Saldo: <span id="balFrom">-</span></div>
-      </div>
+// ================= CONTRACT SETUP =================
+const erc20ABI = [
+  "function approve(address spender,uint256 amount) external returns(bool)"
+];
 
-      <!-- ARROW -->
-      <button id="flipBtn" class="flip-btn">⇅</button>
+const routerABI = [
+  "function swapExactTokensForTokens(uint amountIn,uint amountOutMin,address[] calldata path,address to,uint deadline) external returns (uint[] memory amounts)"
+];
 
-      <!-- TO -->
-      <div class="input-card">
-        <label>Ke</label>
-        <div class="row">
-          <input id="swapOutput" placeholder="0.00" disabled />
-          <button id="toToken" class="token-btn">OOPS ▾</button>
-        </div>
-        <div class="balance">Estimasi: <span id="balToLabel">-</span></div>
-      </div>
+let wgusdt, oops, router;
 
-      <!-- MAIN BUTTON -->
-      <button id="swapBtn" class="main-btn" disabled>Swap</button>
+function loadContracts() {
+  wgusdt = new ethers.Contract(WGUSDT_ADDRESS, erc20ABI, signer);
+  oops   = new ethers.Contract(OOPS_ADDRESS,   erc20ABI, signer);
+  router = new ethers.Contract(ROUTER_ADDRESS, routerABI, signer);
+}
 
-      <!-- STATUS -->
-      <div id="status" class="status"></div>
-    </section>
-  </main>
+// ================= REAL SWAP LOGIC =================
+const swapBtn = document.getElementById("swapBtn");
+swapBtn.onclick = async () => {
+  const status = document.getElementById("status");
 
-  <script src="app.js"></script>
-</body>
-</html>
+  try {
+    loadContracts();
+
+    const amountInStr = document.getElementById("swapInput").value.trim();
+    if (!amountInStr || Number(amountInStr) <= 0) {
+      status.textContent = "Enter amount first.";
+      return;
+    }
+
+    const amountIn = ethers.utils.parseUnits(amountInStr, DECIMALS);
+
+    status.textContent = "⏳ Approving wGUSDT...";
+    const tx1 = await wgusdt.approve(ROUTER_ADDRESS, amountIn);
+    await tx1.wait();
+
+    status.textContent = "🔥 Swapping...";
+    const path = [WGUSDT_ADDRESS, OOPS_ADDRESS];
+
+    const tx2 = await router.swapExactTokensForTokens(
+      amountIn,
+      0,
+      path,
+      userAddress,
+      Math.floor(Date.now()/1000) + 600
+    );
+
+    status.textContent = "⏳ Tx: " + tx2.hash;
+    await tx2.wait();
+
+    status.textContent = "✅ Swap success!";
+  } catch(e){
+    status.textContent = "❌ Error: " + (e.reason || e.message);
+    console.error(e);
+  }
+};
+
+// =============== ADD LP (TETAP ADA) ===============
+const addLpBtn = document.getElementById("addLpBtn");
+addLpBtn.onclick = async () => {
+  document.getElementById("lpStatus").textContent = "✅ Phase 2 nanti.";
+};
+</script>
